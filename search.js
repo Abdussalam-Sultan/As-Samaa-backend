@@ -34,7 +34,7 @@ function removeBasmala(text) {
 console.log("Basmala removed:", removeBasmala('بسم الله الرحمن الرحيم الحمد لله رب العالمين'));
 
 
-const quran = JSON.parse(fs.readFileSync(`../quran.json`, "utf8"));
+const quran = JSON.parse(fs.readFileSync(`./quran.json`, "utf8"));
 
 const fuse = new Fuse(quran.verses, {
   keys: ["normalizedText"],
