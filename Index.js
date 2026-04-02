@@ -2,8 +2,9 @@ import express from "express";
 import axios from "axios";
 import dotenv from "dotenv";
 import {searchQuran, getAyah} from "./search.js";
-import transcribeFile from "./transcribe.js";
+import  transcribeFile from "./transcribe.js";
 import multer from "multer";
+import upload from "./upload.js";
 import cors from "cors";
 dotenv.config();
 const app = express();
@@ -19,6 +20,8 @@ const storage = multer.diskStorage({
     cb(null, file.originalname)
   }
 })
+
+
 // app.post("/api/search", (req, res) => {
 //   // audio search logic here
 //   res.json([
@@ -31,21 +34,19 @@ const storage = multer.diskStorage({
 //     },
 //   ]);
 // });
-app.use((req, res, next) => {
-  console.log("REQUEST:", req.method, req.url);
-  next();
-});
-
 app.get("/", (req, res) => {
   res.json({ message: "API is running" });
 });
-app.post("/api/search",multer({ storage }).single('audio'), async (req, res) => {
+
+app.post("/api/search", upload.single("audio"),async  (req, res) => {
   //const query = req.body.query;
-  const query = await transcribeFile(req.file.path);
+  console.log("REQ FILE:", req.file);
+  const audioUrl = req.file.path;
+  const query = await transcribeFile(audioUrl);
   const results = await searchQuran(query)
   const enrichedResults = await getAyah(results);
 
-  res.json(enrichedResults); // return top 5 results
+  res.json(enrichedResults);
 });
 
 app.listen(PORT, () => {
