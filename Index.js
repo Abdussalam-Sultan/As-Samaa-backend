@@ -1,8 +1,8 @@
 import express from "express";
 import axios from "axios";
 import dotenv from "dotenv";
-import {searchQuran, getAyah} from "./search.js";
-import  transcribeFile from "./transcribe.js";
+import {handleSearch} from "./search.js";
+import { transcribeFile, checkLanguage } from "./transcribe.js";
 import multer from "multer";
 import upload from "./upload.js";
 import cors from "cors";
@@ -39,14 +39,28 @@ app.get("/", (req, res) => {
 });
 
 app.post("/api/search", upload.single("audio"),async  (req, res) => {
-  //const query = req.body.query;
-  console.log("REQ FILE:", req.file);
-  const audioUrl = req.file.path;
-  const query = await transcribeFile(audioUrl);
-  const results = await searchQuran(query)
-  const enrichedResults = await getAyah(results);
+  try {
+    let query = "";
+    const selectedLanguage = req.body.language || "ar";
 
-  res.json(enrichedResults);
+    if (req.file) {
+      // Audio search: transcribe the uploaded file path to text
+      const audioUrl = req.file.path;
+      query = await transcribeFile(audioUrl, selectedLanguage);
+    } else if (req.body.text) {
+      // Text search: use the query provided in the request body
+      query = req.body.text;
+    } else {
+      // No valid input provided
+      return res.status(400).json({ error: "Missing search input (audio file or text query)" });
+    }
+
+    const result = await handleSearch(query);
+    res.json(result);
+  } catch (error) {
+    console.error("Search processing error:", error);
+    res.status(500).json({ error: "An error occurred while processing your search request." });
+  }
 });
 
 app.listen(PORT, () => {

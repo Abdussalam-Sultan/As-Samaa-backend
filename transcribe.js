@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-async function transcribeFromCloudinary(audioUrl) {
+async function transcribeFromCloudinary(audioUrl, language = "ar") {
   const client = new BatchClient({
     apiKey: process.env.SPEECHMATICS_API_KEY,
     appId: "quranapp1",
@@ -35,7 +35,7 @@ async function transcribeFromCloudinary(audioUrl) {
     file,
     {
       transcription_config: {
-        language: "ar",
+        language: language,
         operating_point: "enhanced",
       },
     },
@@ -43,7 +43,6 @@ async function transcribeFromCloudinary(audioUrl) {
   );
 
   console.log("Transcription finished!");
-
   return typeof transcriptResponse === "string"
     ? transcriptResponse
     : transcriptResponse.results
@@ -51,4 +50,17 @@ async function transcribeFromCloudinary(audioUrl) {
         .join(" ");
 }
 
-export default transcribeFromCloudinary;
+function checkLanguage(userInput) {
+  // Regex to check if the text contains Arabic characters
+  const isArabic = /[\u0600-\u06FF]/.test(userInput);
+
+  if (isArabic) {
+    // Run your existing Arabic Fuse logic here
+    return "ar";
+  } else {
+    // Run the newly optimized English Fuse logic
+    return "en";
+  }
+}
+
+export { transcribeFromCloudinary as transcribeFile, checkLanguage };

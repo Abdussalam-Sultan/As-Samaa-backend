@@ -21,77 +21,78 @@ const __dirname = dirname(__filename);
     .replace(/\s+/g, " ")
     .trim();
 }
-//remove basmala from any ayah if it's not surah 1 or 9 using startsWith for better performance, since basmala is always at the beginning of the text if it exists. This is more efficient than using a regex for every ayah.
-
-function removeBasmala(text) {
-  const bismillah = 'بسم الله الرحمن الرحيم';
-  const normalizedText = normalizeArabic(text);
-  if (normalizedText.startsWith(bismillah)) {
-    text = text.slice(bismillah.length).trim();
-  }
-  return text;
+function normalizeEnglish(text) {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s]/g, "") // remove punctuation
+    .replace(/\s+/g, " ")
+    .trim();
 }
-console.log("Basmala removed:", removeBasmala('بسم الله الرحمن الرحيم الحمد لله رب العالمين'));
+function detectInputMode(text) {
+  const hasArabic = /[\u0600-\u06FF]/.test(text);
 
+  if (hasArabic) return "arabic";
+  return "english";
+}
 
-const quran = JSON.parse(fs.readFileSync(`./quran.json`, "utf8"));
+const quran = JSON.parse(fs.readFileSync(`./quran_normalized1.json`, "utf8"));
+const enrichedQuran = quran.map((verse) => ({
+  ...verse,
 
-const fuse = new Fuse(quran.verses, {
-  keys: ["normalizedText"],
+  search_text:
+    normalizeArabic(verse.ayah_ar) +
+    " " +
+    normalizeEnglish(verse.ayah_en)
+}));
+
+const fuse = new Fuse(enrichedQuran, {
+  keys: ["search_text"],
   includeScore: true,
   threshold: 0.5,
-  minMatchCharLength: 4,
+  distance: 1000,
+  minMatchCharLength: 3,
+  ignoreLocation: true,          // Finds the word no matter where it sits in the verse
+  findAllMatches: true 
 });
+
+
+
 
 function scoreToPercentage(score) {
   return ((1 - score) * 100).toFixed(2) + "%";
 }
 
-async function searchQuran(query) {
-  query = normalizeArabic(query);
-  if (query.split(" ").length < 2) {
-    console.log(query);
-  return "Query too short, please use 2+ words for accurate results.";
-}
+ async function searchQuran(queryDefault) {
+  console.log(`Received search query: "${queryDefault}"`);
+
+  if (!queryDefault || typeof queryDefault !== "string") {
+    return "Invalid query.";
+  }
+  const query =
+    normalizeArabic(queryDefault) + " " + normalizeEnglish(queryDefault);
+
   const results = fuse.search(query);
-  if (results.length === 0) {
+
+  if (!results.length) {
     return "No results found.";
   }
-  console.log(`Found ${results.length} results for query: "${query}"`);
-  return results.map(result => ({ query, ... result.item, percentage: scoreToPercentage(result.score) }));
+
+  return results.map((result) => ({
+    query,
+    score: result.score,
+    percentage: scoreToPercentage(result.score),
+
+    ...result.item
+  }));
 }
 
-async function enrichAyahs(ayahsArray) {
+async function handleSearch(input) {
+  const mode = detectInputMode(input);
 
-    // Map each ayah to a promise fetching its metadata
-    const promises = ayahsArray.map(async (ayah) => {
-        try {
-            const verse = quran.verses.find((s) => s.surah === ayah.surah && s.ayah === ayah.ayah);
-            const chapter = quran.chapters.find((c) => c.surah_number === verse.surah);
+  if (mode === "arabic") {
+    return searchQuran(input);
+  }
 
-            return {
-                  query: ayah.query,
-                 surahName: chapter.name_ar,
-                 surahEnglishName: chapter.name_en,
-                 // surahEnglishTranslation: chapter.name_en,
-                 surahAyahCount: chapter.verses_count,
-                // translation: ayahData.translation,
-                text: verse.text_ar,
-                surah: verse.surah,
-                ayah: verse.ayah,
-                  matchPercentage: ayah.percentage, // Include match percentage
-                 
-            };
-        } catch (err) {
-            console.error(`Error fetching surah ${ayah.surah} ayah ${ayah.ayah}:`, err.message);
-            // Return original ayah in case of error
-            return {  error: 'Could not fetch metadata' };
-        }
-    });
-
-    // Wait for all promises to resolve
-    const enrichedAyahs = await Promise.all(promises);
-    return enrichedAyahs;
+  return searchQuran(input);
 }
-
-export {searchQuran, enrichAyahs as getAyah};
+export {handleSearch};
