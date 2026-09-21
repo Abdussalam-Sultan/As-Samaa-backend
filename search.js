@@ -95,4 +95,8 @@ async function handleSearch(input) {
 
   return searchQuran(input);
 }
-export {handleSearch};
+function getSurah(number) {
+  return quran.filter((verse) => verse.surah_no === number);
+}
+
+export {handleSearch, getSurah};
