@@ -78,7 +78,8 @@ function scoreToPercentage(score) {
   }
 
   return results.map((result) => ({
-    query,
+    query: queryDefault,
+    userQuery: queryDefault,
     score: result.score,
     percentage: scoreToPercentage(result.score),
 
